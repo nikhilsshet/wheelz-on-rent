@@ -1,0 +1,10 @@
+# Go-related ignores
+bin/
+*.exe
+*.log
+*.out
+*.test
+vendor/
+
+# Environment config
+.env

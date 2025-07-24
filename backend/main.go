@@ -6,16 +6,15 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nikhilsshet/wheelz-on-rent/backend/config"
+	"github.com/nikhilsshet/wheelz-on-rent/backend/routes"
 )
 
 func main() {
-    config.ConnectDB() // Connect to DB
+	config.ConnectDB()
 
-    r := mux.NewRouter()
-    r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        fmt.Fprintln(w, "Wheelz On Rent Backend")
-    })
+	r := mux.NewRouter()
+	routes.AuthRoutes(r) // Mount auth routes
 
-    fmt.Println("Server is running on port 8080")
-    http.ListenAndServe(":8080", r)
+	fmt.Println("🚀 Server is running on port 8080")
+	http.ListenAndServe(":8080", r)
 }

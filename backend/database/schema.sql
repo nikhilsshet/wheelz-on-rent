@@ -7,6 +7,7 @@ CREATE TABLE users (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    plain_password TEXT,
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'staff', 'customer')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -14,12 +15,13 @@ CREATE TABLE users (
 -- VEHICLES
 CREATE TABLE vehicles (
     id SERIAL PRIMARY KEY,
-    type VARCHAR(10) NOT NULL CHECK (type IN ('car', 'bike')),
-    brand VARCHAR(50) NOT NULL,
-    model VARCHAR(50) NOT NULL,
-    number_plate VARCHAR(20) UNIQUE NOT NULL,
-    status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'booked', 'maintenance')),
-    rent_per_day NUMERIC(10, 2) NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('car', 'bike')),
+    model TEXT,
+    number_plate TEXT UNIQUE NOT NULL,
+    color TEXT,
+    availability BOOLEAN DEFAULT TRUE,
+    price_per_day NUMERIC(10, 2),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

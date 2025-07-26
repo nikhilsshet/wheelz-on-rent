@@ -15,31 +15,42 @@ import (
 
 func Register(w http.ResponseWriter, r *http.Request) {
 	var user models.User
-	json.NewDecoder(r.Body).Decode(&user)
+
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
 
 	if user.Email == "" || user.PasswordHash == "" || user.Name == "" {
 		http.Error(w, "Missing fields", http.StatusBadRequest)
 		return
 	}
 
+	// Save raw password to separate field before hashing
+	user.PlainPassword = user.PasswordHash
+
+	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.PasswordHash), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, "Password encryption failed", http.StatusInternalServerError)
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
 	}
+	user.PasswordHash = string(hashedPassword)
 
-	err = config.DB.QueryRow(`INSERT INTO users (name, email, password_hash, role) 
-		VALUES ($1, $2, $3, $4) RETURNING id`,
-		user.Name, user.Email, string(hashedPassword), "customer").Scan(&user.ID)
-
+	// Insert into DB
+	// db := config.GetDB()
+	_, err = config.DB.Exec("INSERT INTO users (name, email, password_hash, plain_password, role) VALUES ($1, $2, $3, $4, $5)",
+		user.Name, user.Email, user.PasswordHash, user.PlainPassword, "customer")
 	if err != nil {
-		http.Error(w, "User already exists or DB error", http.StatusBadRequest)
+		http.Error(w, "Failed to register user", http.StatusInternalServerError)
 		return
 	}
 
-	user.PasswordHash = ""
-	json.NewEncoder(w).Encode(user)
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"message": "User registered successfully"})
 }
+
 
 func Login(w http.ResponseWriter, r *http.Request) {
 	var input models.User

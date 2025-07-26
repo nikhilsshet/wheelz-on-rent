@@ -15,6 +15,8 @@ func main() {
 	r := mux.NewRouter()
 	routes.AuthRoutes(r) // Mount auth routes
 	routes.RegisterVehicleRoutes(r) // Mount vehicle routes
+	routes.RegisterBookingRoutes(r)
+
 
 
 	fmt.Println("🚀 Server is running on port 8080")

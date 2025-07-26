@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -16,14 +17,12 @@ type Claims struct {
 }
 
 func GenerateJWT(userID int, email, role string) (string, error) {
-	expirationTime := time.Now().Add(24 * time.Hour)
-	claims := &Claims{
-		UserID: userID,
-		Email:  email,
-		Role:   role,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-		},
+	
+	claims := jwt.MapClaims{
+		"id":    userID,
+		"email": email,
+		"role":  role,
+		"exp":   time.Now().Add(24 * time.Hour).Unix(), // expiration timestamp
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -32,6 +31,9 @@ func GenerateJWT(userID int, email, role string) (string, error) {
 
 func ValidateJWT(tokenStr string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
 		return jwtKey, nil
 	})
 
@@ -40,8 +42,8 @@ func ValidateJWT(tokenStr string) (jwt.MapClaims, error) {
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, err
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token claims")
 	}
 
 	return claims, nil

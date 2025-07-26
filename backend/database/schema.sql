@@ -28,12 +28,12 @@ CREATE TABLE vehicles (
 -- BOOKINGS
 CREATE TABLE bookings (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE CASCADE,
+    customer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vehicle_id INTEGER NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    total_price NUMERIC(10, 2) NOT NULL,
-    status VARCHAR(20) DEFAULT 'booked' CHECK (status IN ('booked', 'cancelled', 'completed')),
+    total_price NUMERIC(10, 2),
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'completed')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -42,34 +41,40 @@ func JWTMiddleware(next http.Handler) http.Handler {
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("AuthMiddleware invoked")
-
-		// Step 1: Extract token from Authorization header
+		// Step 1: Extract Authorization header
 		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "Authorization header missing", http.StatusUnauthorized)
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			http.Error(w, "Missing or invalid Authorization header", http.StatusUnauthorized)
 			return
 		}
 
+		// Step 2: Extract token
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// Step 2: Validate the JWT
+		// Step 3: Validate token
 		claims, err := utils.ValidateJWT(tokenStr)
 		if err != nil {
 			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return
 		}
 
-		// Step 3: Extract user info from claims
-		userID, _ := claims["id"].(float64)   // JWT lib returns numbers as float64
-		userRole, _ := claims["role"].(string)
+		// Step 4: Extract user details from claims
+		userIDFloat, okID := claims["id"].(float64) // numbers come as float64 in JWT
+		userRole, okRole := claims["role"].(string)
 
-		// Step 4: Store in context
+		if !okID || !okRole {
+			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+			return
+		}
+
+		userID := int(userIDFloat)
+
+		// Step 5: Add to request context
 		ctx := context.WithValue(r.Context(), ClaimsContextKey, claims)
-		ctx = context.WithValue(ctx, UserIDKey, int(userID))
+		ctx = context.WithValue(ctx, UserIDKey, userID)
 		ctx = context.WithValue(ctx, UserRoleKey, userRole)
 
-		// Step 5: Proceed
+		// Step 6: Continue
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }

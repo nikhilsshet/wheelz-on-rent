@@ -1,0 +1,50 @@
+Note: All the POST methods should have the Contet-Type : application/json and the Bearer token added.
+
+Register 
+POST 
+http://localhost:8080/api/register
+{
+	"name": "Naruto",
+	"email": "naruto@netflix.com",
+	"password_hash": "netflix"
+}
+
+-----------------------------------
+Login
+POST
+http://localhost:8080/api/login
+{
+  "email": "naruto@netflix.com",
+  "password_hash": "netflix"
+}
+
+-----------------------------------
+Vehicle Register
+POST
+http://localhost:8080/api/vehicles
+{
+  "name": "Tata Nexon",
+  "type": "car",
+  "model": "2023",
+  "number_plate": "GJ01MN1111",
+  "color": "Grey",
+  "availability": true,
+  "price_per_day": 1800.00
+}
+
+-----------------------------------
+Vehicle list
+GET
+http://localhost:8080/api/vehicles
+
+-----------------------------------
+Booking
+POST
+http://localhost:8080/api/bookings
+{
+  "vehicle_id": 1,
+  "start_date": "2025-07-26",
+  "end_date": "2025-07-27"
+}
+
+----------------------------------

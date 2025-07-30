@@ -20,10 +20,10 @@ type BookingInput struct {
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	userID := r.Context().Value(middleware.UserIDKey).(int)
-    role := r.Context().Value(middleware.UserRoleKey).(string)
+	role := r.Context().Value(middleware.UserRoleKey).(string)
 
-    fmt.Printf("User ID: %d, Role: %s\n", userID, role)
-	
+	fmt.Printf("User ID: %d, Role: %s\n", userID, role)
+
 	var input BookingInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
@@ -72,4 +72,70 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		"message": "Booking created successfully",
 		"total":   strconv.FormatFloat(total, 'f', 2, 64),
 	})
+}
+
+func GetMyBookings(w http.ResponseWriter, r *http.Request) {
+	userIDVal := r.Context().Value(middleware.UserIDKey)
+	roleVal := r.Context().Value(middleware.UserRoleKey)
+
+	fmt.Println("UserID context value:", userIDVal)
+	fmt.Println("Role context value:", roleVal)
+
+	if userIDVal == nil || roleVal == nil {
+		http.Error(w, "Unauthorized: missing user context", http.StatusUnauthorized)
+		return
+	}
+
+	userID := userIDVal.(int)
+	role := roleVal.(string)
+
+	if role != "customer" {
+		http.Error(w, "Forbidden: Only customers can view their bookings", http.StatusForbidden)
+		return
+	}
+
+	db := config.GetDB()
+
+	rows, err := db.Query(`
+		SELECT b.id, b.start_date, b.end_date, b.total_price, b.status,
+				v.name, v.type, v.model, v.number_plate
+		FROM bookings b
+		JOIN vehicles v ON b.vehicle_id = v.id
+		WHERE b.customer_id = $1
+		ORDER BY b.created_at DESC
+ `, userID)
+
+	if err != nil {
+		http.Error(w, "Failed to fetch bookings", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type BookingResponse struct {
+		BookingID   int     `json:"booking_id"`
+		StartDate   string  `json:"start_date"`
+		EndDate     string  `json:"end_date"`
+		TotalPrice  float64 `json:"total_price"`
+		Status      string  `json:"status"`
+		VehicleName string  `json:"vehicle_name"`
+		VehicleType string  `json:"vehicle_type"`
+		Model       string  `json:"model"`
+		NumberPlate string  `json:"number_plate"`
+	}
+
+	var bookings []BookingResponse
+
+	for rows.Next() {
+		var b BookingResponse
+		err := rows.Scan(&b.BookingID, &b.StartDate, &b.EndDate, &b.TotalPrice, &b.Status,
+			&b.VehicleName, &b.VehicleType, &b.Model, &b.NumberPlate)
+		if err != nil {
+			http.Error(w, "Failed to read bookings", http.StatusInternalServerError)
+			return
+		}
+		bookings = append(bookings, b)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(bookings)
 }

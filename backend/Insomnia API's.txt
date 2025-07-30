@@ -48,3 +48,6 @@ http://localhost:8080/api/bookings
 }
 
 ----------------------------------
+Get all my bookings
+GET
+https://localhost:8080/api/bookings

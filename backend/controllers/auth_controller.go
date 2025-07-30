@@ -51,7 +51,6 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "User registered successfully"})
 }
 
-
 func Login(w http.ResponseWriter, r *http.Request) {
 	var input models.User
 	json.NewDecoder(r.Body).Decode(&input)

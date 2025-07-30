@@ -12,36 +12,59 @@ import (
 
 var DB *sql.DB
 
+// func ConnectDB() {
+//     // Load environment variables from .env
+//     err := godotenv.Load()
+//     if err != nil {
+//         log.Fatal("Error loading .env file")
+//     }
+
+//     host := os.Getenv("DB_HOST")
+//     port := os.Getenv("DB_PORT")
+//     user := os.Getenv("DB_USER")
+//     password := os.Getenv("DB_PASSWORD")
+//     dbname := os.Getenv("DB_NAME")
+
+//     dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+//         host, port, user, password, dbname)
+
+//     DB, err = sql.Open("postgres", dsn)
+//     if err != nil {
+//         log.Fatalf("Failed to open DB: %v", err)
+//     }
+
+//     err = DB.Ping()
+//     if err != nil {
+//         log.Fatalf("Failed to connect to DB: %v", err)
+//     }
+
+//     fmt.Println("✅ Connected to PostgreSQL database")
+// }
+
 func ConnectDB() {
-    // Load environment variables from .env
-    err := godotenv.Load()
-    if err != nil {
-        log.Fatal("Error loading .env file")
-    }
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
-    host := os.Getenv("DB_HOST")
-    port := os.Getenv("DB_PORT")
-    user := os.Getenv("DB_USER")
-    password := os.Getenv("DB_PASSWORD")
-    dbname := os.Getenv("DB_NAME")
+	dsn := os.Getenv("DB_URL")
+	if dsn == "" {
+		log.Fatal("DB_URL not set in .env")
+	}
 
-    dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-        host, port, user, password, dbname)
+	DB, err = sql.Open("postgres", dsn)
+	if err != nil {
+		log.Fatalf("Failed to open DB: %v", err)
+	}
 
-    DB, err = sql.Open("postgres", dsn)
-    if err != nil {
-        log.Fatalf("Failed to open DB: %v", err)
-    }
+	err = DB.Ping()
+	if err != nil {
+		log.Fatalf("Failed to connect to DB: %v", err)
+	}
 
-    err = DB.Ping()
-    if err != nil {
-        log.Fatalf("Failed to connect to DB: %v", err)
-    }
-
-    fmt.Println("✅ Connected to PostgreSQL database")
+	fmt.Println("✅ Connected to PostgreSQL database")
 }
 
 func GetDB() *sql.DB {
-    return DB
+	return DB
 }
-

@@ -8,4 +8,5 @@ import (
 
 func RegisterBookingRoutes(router *mux.Router) {
 	router.HandleFunc("/api/bookings", middleware.AuthMiddleware(controllers.CreateBooking)).Methods("POST")
+	router.HandleFunc("/api/bookings", middleware.AuthMiddleware(controllers.GetMyBookings)).Methods("GET")
 }

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/nikhilsshet/wheelz-on-rent/backend/config"
 	"github.com/nikhilsshet/wheelz-on-rent/backend/middleware"
 )
@@ -139,3 +140,111 @@ func GetMyBookings(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(bookings)
 }
+
+func CancelBooking(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(int)
+	role := r.Context().Value(middleware.UserRoleKey).(string)
+
+	vars := mux.Vars(r)
+	bookingIDStr := vars["id"]
+	bookingID, err := strconv.Atoi(bookingIDStr)
+	if err != nil {
+		http.Error(w, "Invalid booking ID", http.StatusBadRequest)
+		return
+	}
+
+	db := config.GetDB()
+
+	// Step 1: Fetch booking info
+	var customerID int
+	var status string
+
+	err = db.QueryRow("SELECT customer_id, status FROM bookings WHERE id = $1", bookingID).Scan(&customerID, &status)
+	if err != nil {
+		http.Error(w, "Booking not found", http.StatusNotFound)
+		return
+	}
+
+	// Step 2: Only the owner or an admin can cancel
+	if userID != customerID && role != "admin" {
+		http.Error(w, "Unauthorized to cancel this booking", http.StatusUnauthorized)
+		return
+	}
+
+	if status == "cancelled" {
+		http.Error(w, "Booking is already cancelled", http.StatusBadRequest)
+		return
+	}
+
+	// Step 3: Update status
+	_, err = db.Exec("UPDATE bookings SET status = 'cancelled' WHERE id = $1", bookingID)
+	if err != nil {
+		http.Error(w, "Failed to cancel booking", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Booking cancelled successfully",
+	})
+}
+
+func GetAllBookings(w http.ResponseWriter, r *http.Request) {
+	role := r.Context().Value(middleware.UserRoleKey).(string)
+
+	if role != "admin" {
+		http.Error(w, "Forbidden: Only admin can view all bookings", http.StatusForbidden)
+		return
+	}
+
+	db := config.GetDB()
+
+	rows, err := db.Query(`
+		SELECT b.id, b.start_date, b.end_date, b.total_price, b.status,
+		       v.name, v.type, v.model, v.number_plate,
+		       u.id, u.name, u.email
+		FROM bookings b
+		JOIN vehicles v ON b.vehicle_id = v.id
+		JOIN users u ON b.customer_id = u.id
+		ORDER BY b.created_at DESC
+	`)
+
+	if err != nil {
+		http.Error(w, "Failed to fetch bookings", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type BookingAdminView struct {
+		BookingID    int     `json:"booking_id"`
+		StartDate    string  `json:"start_date"`
+		EndDate      string  `json:"end_date"`
+		TotalPrice   float64 `json:"total_price"`
+		Status       string  `json:"status"`
+		VehicleName  string  `json:"vehicle_name"`
+		VehicleType  string  `json:"vehicle_type"`
+		VehicleModel string  `json:"vehicle_model"`
+		NumberPlate  string  `json:"number_plate"`
+		CustomerID   int     `json:"customer_id"`
+		CustomerName string  `json:"customer_name"`
+		CustomerEmail string `json:"customer_email"`
+	}
+
+	var bookings []BookingAdminView
+
+	for rows.Next() {
+		var b BookingAdminView
+		err := rows.Scan(&b.BookingID, &b.StartDate, &b.EndDate, &b.TotalPrice, &b.Status,
+			&b.VehicleName, &b.VehicleType, &b.VehicleModel, &b.NumberPlate,
+			&b.CustomerID, &b.CustomerName, &b.CustomerEmail)
+		if err != nil {
+			http.Error(w, "Failed to read bookings", http.StatusInternalServerError)
+			return
+		}
+		bookings = append(bookings, b)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(bookings)
+}
+

@@ -51,3 +51,13 @@ http://localhost:8080/api/bookings
 Get all my bookings
 GET
 https://localhost:8080/api/bookings
+
+----------------------------------
+Cancel booking
+PATCH
+http://localhost:8080/api/bookings/{id}/cancel
+
+----------------------------------
+Get all the bookings (ADMIN)
+GET
+http://localhost:8080/api/bookings/all

@@ -19,24 +19,21 @@ type BookingInput struct {
 }
 
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
-
 	userID := r.Context().Value(middleware.UserIDKey).(int)
 	role := r.Context().Value(middleware.UserRoleKey).(string)
 
 	fmt.Printf("User ID: %d, Role: %s\n", userID, role)
+
+	if role != "customer" {
+		http.Error(w, "Only customers can book vehicles", http.StatusForbidden)
+		return
+	}
 
 	var input BookingInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
-
-	// Optional: Get customer ID from token context
-	// userID, ok := r.Context().Value("userID").(float64)
-	// if !ok {
-	// 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	// 	return
-	// }
 
 	startDate, err1 := time.Parse("2006-01-02", input.StartDate)
 	endDate, err2 := time.Parse("2006-01-02", input.EndDate)
@@ -47,30 +44,49 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	db := config.GetDB()
 
-	// Get price of vehicle
+	// Step 1: Check vehicle availability
 	var pricePerDay float64
-	err := db.QueryRow("SELECT price_per_day FROM vehicles WHERE id = $1", input.VehicleID).Scan(&pricePerDay)
+	var available bool
+	err := db.QueryRow("SELECT price_per_day, availability FROM vehicles WHERE id = $1", input.VehicleID).
+		Scan(&pricePerDay, &available)
+
 	if err != nil {
 		http.Error(w, "Vehicle not found", http.StatusNotFound)
 		return
 	}
 
+	if !available {
+		http.Error(w, "Vehicle is not available", http.StatusBadRequest)
+		return
+	}
+
+	// Step 2: Calculate total
 	duration := endDate.Sub(startDate).Hours() / 24
+	if duration < 1 {
+		duration = 1 // at least 1 day
+	}
 	total := pricePerDay * duration
 
-	// Insert booking
+	// Step 3: Insert booking
 	_, err = db.Exec(`
-		INSERT INTO bookings (customer_id, vehicle_id, start_date, end_date, total_price)
-		VALUES ($1, $2, $3, $4, $5)
-	`, int(userID), input.VehicleID, startDate, endDate, total)
+		INSERT INTO bookings (customer_id, vehicle_id, start_date, end_date, total_price, status)
+		VALUES ($1, $2, $3, $4, $5, 'active')
+ 		`, userID, input.VehicleID, startDate, endDate, total)
 
 	if err != nil {
 		http.Error(w, "Could not create booking", http.StatusInternalServerError)
 		return
 	}
 
+	// Step 4: Mark vehicle as unavailable
+	_, err = db.Exec("UPDATE vehicles SET availability = false WHERE id = $1", input.VehicleID)
+	if err != nil {
+		http.Error(w, "Failed to update vehicle availability", http.StatusInternalServerError)
+		return
+	}
+
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Booking created successfully",
+		"message": "Booking created successfully and vehicle marked unavailable",
 		"total":   strconv.FormatFloat(total, 'f', 2, 64),
 	})
 }
@@ -155,17 +171,19 @@ func CancelBooking(w http.ResponseWriter, r *http.Request) {
 
 	db := config.GetDB()
 
-	// Step 1: Fetch booking info
+	// Step 1: Get booking info
 	var customerID int
 	var status string
+	var vehicleID int
 
-	err = db.QueryRow("SELECT customer_id, status FROM bookings WHERE id = $1", bookingID).Scan(&customerID, &status)
+	err = db.QueryRow(`SELECT customer_id, status, vehicle_id FROM bookings WHERE id = $1`, bookingID).
+		Scan(&customerID, &status, &vehicleID)
 	if err != nil {
 		http.Error(w, "Booking not found", http.StatusNotFound)
 		return
 	}
 
-	// Step 2: Only the owner or an admin can cancel
+	// Step 2: Authorization check
 	if userID != customerID && role != "admin" {
 		http.Error(w, "Unauthorized to cancel this booking", http.StatusUnauthorized)
 		return
@@ -176,16 +194,23 @@ func CancelBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 3: Update status
-	_, err = db.Exec("UPDATE bookings SET status = 'cancelled' WHERE id = $1", bookingID)
+	// Step 3: Cancel the booking
+	_, err = db.Exec(`UPDATE bookings SET status = 'cancelled' WHERE id = $1`, bookingID)
 	if err != nil {
 		http.Error(w, "Failed to cancel booking", http.StatusInternalServerError)
 		return
 	}
 
+	// Step 4: Mark vehicle as available again
+	_, err = db.Exec(`UPDATE vehicles SET availability = true WHERE id = $1`, vehicleID)
+	if err != nil {
+		http.Error(w, "Failed to update vehicle availability", http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Booking cancelled successfully",
+		"message": "Booking cancelled and vehicle marked available",
 	})
 }
 
@@ -216,18 +241,18 @@ func GetAllBookings(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type BookingAdminView struct {
-		BookingID    int     `json:"booking_id"`
-		StartDate    string  `json:"start_date"`
-		EndDate      string  `json:"end_date"`
-		TotalPrice   float64 `json:"total_price"`
-		Status       string  `json:"status"`
-		VehicleName  string  `json:"vehicle_name"`
-		VehicleType  string  `json:"vehicle_type"`
-		VehicleModel string  `json:"vehicle_model"`
-		NumberPlate  string  `json:"number_plate"`
-		CustomerID   int     `json:"customer_id"`
-		CustomerName string  `json:"customer_name"`
-		CustomerEmail string `json:"customer_email"`
+		BookingID     int     `json:"booking_id"`
+		StartDate     string  `json:"start_date"`
+		EndDate       string  `json:"end_date"`
+		TotalPrice    float64 `json:"total_price"`
+		Status        string  `json:"status"`
+		VehicleName   string  `json:"vehicle_name"`
+		VehicleType   string  `json:"vehicle_type"`
+		VehicleModel  string  `json:"vehicle_model"`
+		NumberPlate   string  `json:"number_plate"`
+		CustomerID    int     `json:"customer_id"`
+		CustomerName  string  `json:"customer_name"`
+		CustomerEmail string  `json:"customer_email"`
 	}
 
 	var bookings []BookingAdminView
@@ -247,4 +272,3 @@ func GetAllBookings(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(bookings)
 }
-

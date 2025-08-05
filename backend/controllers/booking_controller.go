@@ -69,7 +69,7 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	// Step 3: Insert booking
 	_, err = db.Exec(`
-		INSERT INTO bookings (customer_id, vehicle_id, start_date, end_date, total_price, status)
+		INSERT INTO bookings (customer_id, vehicle_id, start_date, end_date, total_price, status, payment_status)
 		VALUES ($1, $2, $3, $4, $5, 'active')
  		`, userID, input.VehicleID, startDate, endDate, total)
 

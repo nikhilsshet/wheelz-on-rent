@@ -34,7 +34,7 @@ function Login() {
         const data = await res.json();
         localStorage.setItem("token", data.token); // Store token in localStorage
         console.log("Token:", data.token);
-        // navigate("/dashboard"); // Redirect to home page
+        navigate("/dashboard"); // Redirect to home page
       } else {
         const errText = await res.text(); // get server response
         setError(errText); // show error to user

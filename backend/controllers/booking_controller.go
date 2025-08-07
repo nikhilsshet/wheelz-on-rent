@@ -18,75 +18,137 @@ type BookingInput struct {
 	EndDate   string `json:"end_date"`
 }
 
+// func CreateBooking(w http.ResponseWriter, r *http.Request) {
+// 	userID := r.Context().Value(middleware.UserIDKey).(int)
+// 	role := r.Context().Value(middleware.UserRoleKey).(string)
+
+// 	fmt.Printf("User ID: %d, Role: %s\n", userID, role)
+
+// 	if role != "customer" {
+// 		http.Error(w, "Only customers can book vehicles", http.StatusForbidden)
+// 		return
+// 	}
+
+// 	var input BookingInput
+// 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+// 		http.Error(w, "Invalid input", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	startDate, err1 := time.Parse("2006-01-02", input.StartDate)
+// 	endDate, err2 := time.Parse("2006-01-02", input.EndDate)
+// 	if err1 != nil || err2 != nil || endDate.Before(startDate) {
+// 		http.Error(w, "Invalid date range", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	db := config.GetDB()
+
+// 	// Step 1: Check vehicle availability
+// 	var pricePerDay float64
+// 	var available bool
+// 	err := db.QueryRow("SELECT price_per_day, availability FROM vehicles WHERE id = $1", input.VehicleID).
+// 		Scan(&pricePerDay, &available)
+
+// 	if err != nil {
+// 		http.Error(w, "Vehicle not found", http.StatusNotFound)
+// 		return
+// 	}
+
+// 	if !available {
+// 		http.Error(w, "Vehicle is not available", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	// Step 2: Calculate total
+// 	duration := endDate.Sub(startDate).Hours() / 24
+// 	if duration < 1 {
+// 		duration = 1 // at least 1 day
+// 	}
+// 	total := pricePerDay * duration
+
+// 	// Step 3: Insert booking
+// 	_, err = db.Exec(`
+// 		INSERT INTO bookings (customer_id, vehicle_id, start_date, end_date, total_price, status, payment_status)
+// 		VALUES ($1, $2, $3, $4, $5, 'active')
+//  		`, userID, input.VehicleID, startDate, endDate, total)
+
+// 	if err != nil {
+// 		http.Error(w, "Could not create booking", http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	// Step 4: Mark vehicle as unavailable
+// 	_, err = db.Exec("UPDATE vehicles SET availability = false WHERE id = $1", input.VehicleID)
+// 	if err != nil {
+// 		http.Error(w, "Failed to update vehicle availability", http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	json.NewEncoder(w).Encode(map[string]string{
+// 		"message": "Booking created successfully and vehicle marked unavailable",
+// 		"total":   strconv.FormatFloat(total, 'f', 2, 64),
+// 	})
+// }
+
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(int)
 	role := r.Context().Value(middleware.UserRoleKey).(string)
 
 	fmt.Printf("User ID: %d, Role: %s\n", userID, role)
 
-	if role != "customer" {
-		http.Error(w, "Only customers can book vehicles", http.StatusForbidden)
-		return
-	}
-
 	var input BookingInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		fmt.Println("❌ Failed to decode input:", err)
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
 
+	fmt.Printf("🔁 Received input: %+v\n", input)
+
 	startDate, err1 := time.Parse("2006-01-02", input.StartDate)
 	endDate, err2 := time.Parse("2006-01-02", input.EndDate)
 	if err1 != nil || err2 != nil || endDate.Before(startDate) {
+		fmt.Println("❌ Invalid date range", err1, err2)
 		http.Error(w, "Invalid date range", http.StatusBadRequest)
 		return
 	}
 
 	db := config.GetDB()
 
-	// Step 1: Check vehicle availability
+	// Step 1: Fetch vehicle price
 	var pricePerDay float64
-	var available bool
-	err := db.QueryRow("SELECT price_per_day, availability FROM vehicles WHERE id = $1", input.VehicleID).
-		Scan(&pricePerDay, &available)
-
+	err := db.QueryRow("SELECT price_per_day FROM vehicles WHERE id = $1", input.VehicleID).Scan(&pricePerDay)
 	if err != nil {
+		fmt.Println("❌ Vehicle not found or error fetching price:", err)
 		http.Error(w, "Vehicle not found", http.StatusNotFound)
 		return
 	}
 
-	if !available {
-		http.Error(w, "Vehicle is not available", http.StatusBadRequest)
-		return
-	}
-
-	// Step 2: Calculate total
 	duration := endDate.Sub(startDate).Hours() / 24
-	if duration < 1 {
-		duration = 1 // at least 1 day
-	}
 	total := pricePerDay * duration
 
-	// Step 3: Insert booking
+	// Step 2: Insert booking
 	_, err = db.Exec(`
-		INSERT INTO bookings (customer_id, vehicle_id, start_date, end_date, total_price, status, payment_status)
-		VALUES ($1, $2, $3, $4, $5, 'active')
- 		`, userID, input.VehicleID, startDate, endDate, total)
+		INSERT INTO bookings (customer_id, vehicle_id, start_date, end_date, total_price)
+		VALUES ($1, $2, $3, $4, $5)
+	`, userID, input.VehicleID, startDate, endDate, total)
 
 	if err != nil {
+		fmt.Println("❌ Could not insert booking:", err)
 		http.Error(w, "Could not create booking", http.StatusInternalServerError)
 		return
 	}
 
-	// Step 4: Mark vehicle as unavailable
-	_, err = db.Exec("UPDATE vehicles SET availability = false WHERE id = $1", input.VehicleID)
+	// Step 3: Update vehicle availability (if needed)
+	_, err = db.Exec(`UPDATE vehicles SET availability = FALSE WHERE id = $1`, input.VehicleID)
 	if err != nil {
-		http.Error(w, "Failed to update vehicle availability", http.StatusInternalServerError)
-		return
+		fmt.Println("❌ Failed to update vehicle availability:", err)
+		// Optional: don't fail booking just for this
 	}
 
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Booking created successfully and vehicle marked unavailable",
+		"message": "Booking created successfully",
 		"total":   strconv.FormatFloat(total, 'f', 2, 64),
 	})
 }

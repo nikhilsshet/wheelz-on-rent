@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nikhilsshet/wheelz-on-rent/backend/config"
+	"github.com/nikhilsshet/wheelz-on-rent/backend/middleware"
 	"github.com/nikhilsshet/wheelz-on-rent/backend/routes"
 )
 
@@ -14,8 +15,7 @@ func main() {
 
 	r := mux.NewRouter()
 
-	r.Use(enableCORS)
-
+	r.Use(middleware.EnableCORS)    // Use CORS middleware
 	routes.AuthRoutes(r)            // Mount auth routes
 	routes.RegisterVehicleRoutes(r) // Mount vehicle routes
 	routes.RegisterBookingRoutes(r)
@@ -24,17 +24,17 @@ func main() {
 	http.ListenAndServe(":8080", r)
 }
 
-func enableCORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+// func enableCORS(next http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		w.Header().Set("Access-Control-Allow-Origin", "*")
+// 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+// 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
+// 		if r.Method == "OPTIONS" {
+// 			w.WriteHeader(http.StatusOK)
+// 			return
+// 		}
 
-		next.ServeHTTP(w, r)
-	})
-}
+// 		next.ServeHTTP(w, r)
+// 	})
+//}

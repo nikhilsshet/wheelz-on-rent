@@ -41,6 +41,13 @@ func JWTMiddleware(next http.Handler) http.Handler {
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method == http.MethodOptions {
+			// Allow preflight requests
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Step 1: Extract Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {

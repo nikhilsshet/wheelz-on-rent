@@ -1,11 +1,19 @@
+// src/pages/Login.js
 import React, { useState, useContext } from "react";
-import api from "../utils/api";
 import { AuthContext } from "../authContext";
 import { useNavigate } from "react-router-dom";
+import {
+  Box,
+  Button,
+  Container,
+  TextField,
+  Typography,
+  Alert,
+  Paper,
+} from "@mui/material";
 
 function Login() {
   const { login } = useContext(AuthContext);
-
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -16,14 +24,12 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(""); // Reset error message
+    setError("");
 
     try {
       const res = await fetch("/api/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: form.email,
           password: form.password,
@@ -32,12 +38,12 @@ function Login() {
 
       if (res.status === 200) {
         const data = await res.json();
-        localStorage.setItem("token", data.token); // Store token in localStorage
+        localStorage.setItem("token", data.token);
         console.log("Token:", data.token);
-        navigate("/dashboard"); // Redirect to home page
+        navigate("/dashboard");
       } else {
-        const errText = await res.text(); // get server response
-        setError(errText); // show error to user
+        const errText = await res.text();
+        setError(errText);
       }
     } catch (err) {
       setError("Login request failed");
@@ -46,56 +52,45 @@ function Login() {
   };
 
   return (
-    // <div>
-    //   <h2>Login</h2>
-    //   <form onSubmit={handleSubmit}>
-    //     <input
-    //       name="email"
-    //       type="email"
-    //       placeholder="Email"
-    //       onChange={handleChange}
-    //     />
-    //     <input
-    //       name="password"
-    //       type="password"
-    //       placeholder="Password"
-    //       onChange={handleChange}
-    //     />
-    //     <button type="submit">Login</button>
-    //   </form>
-    //   <p style={{ color: "red" }}>{error}</p>
-    // </div>
-    <div style={{ padding: "2rem" }}>
-      <h2>Login</h2>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Email:</label>
-          <br />
-          <input
-            type="email"
+    <Container maxWidth="xs">
+      <Paper elevation={3} sx={{ p: 4, mt: 8 }}>
+        <Typography variant="h5" align="center" gutterBottom>
+          Login
+        </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit}>
+          <TextField
+            label="Email"
             name="email"
+            type="email"
             value={form.email}
             onChange={handleChange}
+            fullWidth
             required
+            margin="normal"
           />
-        </div>
-        <div style={{ marginTop: "1rem" }}>
-          <label>Password:</label>
-          <br />
-          <input
-            type="password"
+          <TextField
+            label="Password"
             name="password"
+            type="password"
             value={form.password}
             onChange={handleChange}
+            fullWidth
             required
+            margin="normal"
           />
-        </div>
-        <button type="submit" style={{ marginTop: "1rem" }}>
-          Login
-        </button>
-      </form>
-    </div>
+          <Button type="submit" variant="contained" fullWidth sx={{ mt: 2 }}>
+            Login
+          </Button>
+        </Box>
+      </Paper>
+    </Container>
   );
 }
 

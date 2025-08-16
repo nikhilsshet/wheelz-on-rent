@@ -9,7 +9,8 @@ import (
 func RegisterBookingRoutes(router *mux.Router) {
 	router.HandleFunc("/api/bookings", middleware.AuthMiddleware(controllers.CreateBooking)).Methods("POST")
 	router.HandleFunc("/api/bookings", middleware.AuthMiddleware(controllers.GetMyBookings)).Methods("GET")
-	router.HandleFunc("/api/bookings/{id}/cancel", middleware.AuthMiddleware(controllers.CancelBooking)).Methods("PATCH")
+	router.HandleFunc("/api/bookings/{id}/cancel", middleware.AuthMiddleware(controllers.CancelBooking)).Methods("PATCH", "OPTIONS")
 	router.HandleFunc("/api/bookings/all", middleware.AuthMiddleware(controllers.GetAllBookings)).Methods("GET")
 	router.HandleFunc("/api/mybookings", middleware.AuthMiddleware(controllers.GetMyBookings)).Methods("GET", "OPTIONS")
+
 }

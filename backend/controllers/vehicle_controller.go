@@ -3,15 +3,43 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/nikhilsshet/wheelz-on-rent/backend/config"
 	"github.com/nikhilsshet/wheelz-on-rent/backend/models"
 )
 
+// Helper function to extract role from JWT token
+func getRoleFromToken(r *http.Request) (string, error) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return "", http.ErrNoCookie
+	}
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil {
+		return "", err
+	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		if role, ok := claims["role"].(string); ok {
+			return role, nil
+		}
+	}
+	return "", http.ErrNoCookie
+}
+
 func AddVehicle(w http.ResponseWriter, r *http.Request) {
+
+	role, err := getRoleFromToken(r)
+	if err != nil || role != "admin" {
+		http.Error(w, "Unauthorized: Admins can only add vehicles", http.StatusNotAcceptable)
+		return
+	}
+
 	var vehicle models.Vehicle
 
-	err := json.NewDecoder(r.Body).Decode(&vehicle)
+	err = json.NewDecoder(r.Body).Decode(&vehicle)
 	if err != nil {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
@@ -53,4 +81,3 @@ func GetAllVehicles(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(vehicles)
 }
-
